@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>互動時間計算 - 雙向闖關版</title>
+    <style>
+        body {
+            font-family: "PingFang TC", "Helvetica Neue", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            margin: 0;
+            padding: 10px; 
+            height: 100vh;
+            box-sizing: border-box;
+            touch-action: none; 
+            overflow: hidden; 
+        }
+        
+        .q-select {
+            font-size: 14px;
+            padding: 5px 10px;
+            border-radius: 8px;
+            border: 2px solid #fff;
+            background: rgba(255, 255, 255, 0.8);
+            margin-bottom: 8px;
+            width: 95%;
+            max-width: 400px;
+            outline: none;
+        }
+
+        .question-panel {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            width: 95%;
+            max-width: 400px;
+            margin-bottom: 10px; 
+            line-height: 1.4;
+            font-size: 16px; 
+            color: #34495e;
+            border-top: 4px solid #8e9eab;
+        }
+        .highlight { color: #d35400; font-weight: bold; }
+        
+        .info-panel {
+            text-align: center;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px; 
+        }
+        .digital-time {
+            font-size: 32px; 
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .elapsed-time {
+            font-size: 16px;
+            color: #e74c3c;
+            font-weight: bold;
+            background: rgba(253, 237, 236, 0.8);
+            padding: 4px 10px;
+            border-radius: 15px;
+        }
+        
+        .clock-container {
+            width: 240px; 
+            height: 240px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.85);
+            border: 8px solid rgba(255, 255, 255, 0.6);
+            position: relative;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            cursor: pointer; 
+            transition: border-color 0.4s;
+        }
+        .clock-container.success { border-color: #2ecc71; }
+        
+        .mark {
+            position: absolute;
+            width: 2px;
+            height: 8px;
+            background: #bdc3c7;
+            left: 50%;
+            transform: translateX(-50%);
+            transform-origin: 50% 120px;
+        }
+        .mark.main { width: 4px; height: 12px; background: #7f8c8d; }
+        
+        .number {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            text-align: center;
+            line-height: 24px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            left: 50%;
+            top: 50%;
+            margin-left: -12px;
+            margin-top: -12px;
+            pointer-events: none;
+        }
+
+        .hand {
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            transform-origin: bottom center;
+            border-radius: 10px;
+        }
+        .hour-hand { width: 8px; height: 60px; background: #2c3e50; margin-left: -4px; z-index: 2; }
+        .minute-hand { width: 5px; height: 95px; background: #e74c3c; margin-left: -2.5px; z-index: 3; }
+        .center-dot {
+            position: absolute;
+            width: 14px; height: 14px;
+            background: #2c3e50;
+            border-radius: 50%;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 4;
+            border: 2px solid white;
+        }
+        
+        .instruction {
+            margin-top: 15px;
+            color: #5d6d7e;
+            font-size: 15px;
+            font-weight: bold;
+        }
+        .success-msg {
+            display: none;
+            margin-top: 15px;
+            color: #27ae60;
+            font-size: 20px;
+            font-weight: bold;
+            animation: popIn 0.5s ease-out forwards;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .confetti {
+            position: absolute;
+            width: 8px;
+            height: 16px;
+            z-index: 999;
+            animation: fall linear forwards;
+        }
+        @keyframes fall {
+            to { transform: translateY(110vh) rotate(720deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <select id="qSelect" class="q-select" onchange="loadQuestion(parseInt(this.value))">
+        <option value="0">第 1 關：下課時間（同日順推）</option>
+        <option value="1">第 2 關：早自習（同日逆推）</option>
+        <option value="2">第 3 關：列車抵達（同日順推）</option>
+        <option value="3">第 4 關：午休時間（同日逆推）</option>
+        <option value="4">第 5 關：下午班會（跨中午順推）</option>
+        <option value="5">第 6 關：上午午餐（跨中午逆推）</option>
+        <option value="6">第 7 關：跨年煙火（跨午夜順推）</option>
+        <option value="7">第 8 關：遊戲維護（跨午夜順推）</option>
+        <option value="8">第 9 關：昨晚電影（跨午夜逆推）</option>
+    </select>
+
+    <div class="question-panel" id="qText"></div>
+
+    <div class="info-panel">
+        <div class="digital-time" id="digitalDisplay">00:00</div>
+        <div class="elapsed-time" id="elapsedDisplay">已經過：0 分鐘</div>
+    </div>
+
+    <div class="clock-container" id="clockFace">
+        <script>
+            for(let i=0; i<12; i++) {
+                let isMain = (i % 3 === 0) ? 'main' : '';
+                document.write(`<div class="mark ${isMain}" style="transform: translateX(-50%) rotate(${i*30}deg)"></div>`);
+                
+                let num = i === 0 ? 12 : i;
+                let angle = i * 30;
+                let radius = 90; 
+                document.write(`<div class="number" style="transform: rotate(${angle}deg) translateY(-${radius}px) rotate(-${angle}deg)">${num}</div>`);
+            }
+        </script>
+        <div class="hand hour-hand" id="hourHand"></div>
+        <div class="hand minute-hand" id="minuteHand"></div>
+        <div class="center-dot"></div>
+    </div>
+
+    <div class="instruction" id="instructionText">👆 請撥動紅色分針進行推算</div>
+    <div class="success-msg" id="successMsg">🎉 太棒了！</div>
+
+    <script>
+        // target 為正數代表「再過...（順推）」，負數代表「...前（逆推）」
+        const questions = [
+            // 原有題目（同日計算）
+            { text: "現在是上午 <span class='highlight'>9 時 30 分</span>，再過 <span class='highlight'>40 分鐘</span>是下課時間，下課是幾時幾分？", start: 9*60+30, target: 40 },
+            { text: "現在是上午 <span class='highlight'>8 時 5 分</span>，<span class='highlight'>25 分鐘前</span>是開始早自習的時間，早自習開始是幾時幾分？", start: 8*60+5, target: -25 },
+            { text: "現在是上午 <span class='highlight'>10 時 15 分</span>，再過 <span class='highlight'>1 小時 20 分鐘</span>列車抵達，何時抵達？", start: 10*60+15, target: 80 },
+            { text: "現在是下午 <span class='highlight'>1 時 15 分</span>，<span class='highlight'>1 小時 10 分鐘前</span>是午休開始的時間，午休開始是幾時幾分？", start: 13*60+15, target: -70 },
+
+            // 新增：跨中午題目
+            { text: "現在是上午 <span class='highlight'>11 時 20 分</span>，再過 <span class='highlight'>1 小時 50 分鐘</span>要開班會，班會是幾時幾分？", start: 11*60+20, target: 110 },
+            { text: "現在是下午 <span class='highlight'>1 時 30 分</span>，<span class='highlight'>2 小時 15 分鐘前</span>剛好是準備吃午餐的時間，準備午餐是幾時幾分？", start: 13*60+30, target: -135 },
+
+            // 新增：跨午夜（跨日）題目
+            { text: "現在是晚上 <span class='highlight'>10 時 45 分</span>，再過 <span class='highlight'>2 小時 30 分鐘</span>是跨年煙火施放時間，煙火施放是幾時幾分？", start: 22*60+45, target: 150 },
+            { text: "現在是晚上 <span class='highlight'>11 時 10 分</span>，再過 <span class='highlight'>1 小時 40 分鐘</span>遊戲伺服器會維護完畢，開機是幾時幾分？", start: 23*60+10, target: 100 },
+            { text: "現在是凌晨 <span class='highlight'>1 時 15 分</span>，<span class='highlight'>2 小時 30 分鐘前</span>是電影開始的時間，電影是幾時幾分開始的？", start: 1*60+15, target: -150 }
+        ];
+
+        let currentQIndex = 0;
+        let startTotalMinutes = 0;
+        let targetElapsedMinutes = 0;
+        
+        let exactMinutes = 0; 
+        let currentTotalMinutes = 0; 
+        
+        let isDragging = false;
+        let previousAngle = null;
+        let isSolved = false;
+
+        const clockFace = document.getElementById('clockFace');
+        const hourHand = document.getElementById('hourHand');
+        const minuteHand = document.getElementById('minuteHand');
+        const digitalDisplay = document.getElementById('digitalDisplay');
+        const elapsedDisplay = document.getElementById('elapsedDisplay');
+        const successMsg = document.getElementById('successMsg');
+        const instructionText = document.getElementById('instructionText');
+        const qSelect = document.getElementById('qSelect');
+
+        function loadQuestion(index) {
+            currentQIndex = index;
+            qSelect.value = index;
+            let q = questions[currentQIndex];
+            
+            document.getElementById('qText').innerHTML = q.text;
+            startTotalMinutes = q.start;
+            targetElapsedMinutes = q.target;
+            
+            exactMinutes = startTotalMinutes;
+            currentTotalMinutes = startTotalMinutes;
+            
+            isSolved = false;
+            clockFace.classList.remove('success');
+            successMsg.style.display = 'none';
+            instructionText.style.display = 'block';
+            
+            let absTarget = Math.abs(targetElapsedMinutes);
+            let targetH = Math.floor(absTarget / 60);
+            let targetM = absTarget % 60;
+            let hintTimeText = targetH > 0 ? `${targetH} 小時又 ${targetM} 分鐘` : `${targetM} 分鐘`;
+            let directionText = targetElapsedMinutes < 0 ? "回" : "前";
+            
+            instructionText.innerText = `👆 請將指針往${directionText}推算 ${hintTimeText}`;
+
+            updateDisplay();
+        }
+
+        function throwConfetti() {
+            const colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6'];
+            for (let i = 0; i < 40; i++) {
+                let confetti = document.createElement('div');
+                confetti.classList.add('confetti');
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-20px';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDuration = (Math.random() * 1.5 + 1.5) + 's';
+                document.body.appendChild(confetti);
+                setTimeout(() => confetti.remove(), 3000); 
+            }
+        }
+
+        function updateDisplay() {
+            let displayHour = Math.floor(currentTotalMinutes / 60) % 24;
+            let displayMinute = currentTotalMinutes % 60; 
+            
+            if (displayHour < 0) displayHour += 24;
+            if (displayMinute < 0) displayMinute += 60;
+
+            digitalDisplay.innerText = `${displayHour.toString().padStart(2, '0')}:${displayMinute.toString().padStart(2, '0')}`;
+
+            let elapsed = currentTotalMinutes - startTotalMinutes;
+            if (elapsed < 0) {
+                elapsedDisplay.innerText = `已往回：${Math.abs(elapsed)} 分鐘`;
+            } else {
+                elapsedDisplay.innerText = `已經過：${elapsed} 分鐘`;
+            }
+
+            let minuteAngle = (exactMinutes % 60) * 6;
+            let hourAngle = ((exactMinutes / 60) % 12) * 30;
+
+            minuteHand.style.transform = `rotate(${minuteAngle}deg)`;
+            hourHand.style.transform = `rotate(${hourAngle}deg)`;
+
+            if (elapsed === targetElapsedMinutes && !isSolved) {
+                isSolved = true;
+                clockFace.classList.add('success');
+                successMsg.innerHTML = `🎉 太棒了！答案是 ${digitalDisplay.innerText}`;
+                successMsg.style.display = 'block';
+                instructionText.style.display = 'none';
+                
+                throwConfetti(); 
+
+                setTimeout(() => {
+                    if (currentQIndex + 1 < questions.length) {
+                        loadQuestion(currentQIndex + 1);
+                    } else {
+                        instructionText.innerText = "🏆 恭喜你完成所有雙向關卡！";
+                        instructionText.style.display = 'block';
+                        successMsg.style.display = 'none';
+                    }
+                }, 2500);
+
+            } else if (elapsed !== targetElapsedMinutes && isSolved) {
+                isSolved = false;
+                clockFace.classList.remove('success');
+                successMsg.style.display = 'none';
+                instructionText.style.display = 'block';
+            }
+        }
+
+        function getAngle(x, y) {
+            const rect = clockFace.getBoundingClientRect();
+            let radians = Math.atan2(y - (rect.top + rect.height/2), x - (rect.left + rect.width/2));
+            let degrees = radians * (180 / Math.PI) + 90;
+            return degrees < 0 ? degrees + 360 : degrees;
+        }
+
+        function handleMove(clientX, clientY) {
+            if (!isDragging || isSolved) return; 
+            let currentAngle = getAngle(clientX, clientY);
+            if (previousAngle !== null) {
+                let delta = currentAngle - previousAngle;
+                if (delta > 180) delta -= 360;
+                else if (delta < -180) delta += 360;
+                
+                exactMinutes += delta / 6;
+                currentTotalMinutes = Math.round(exactMinutes); 
+            }
+            previousAngle = currentAngle;
+            updateDisplay();
+        }
+
+        clockFace.addEventListener('mousedown', (e) => { isDragging = true; previousAngle = getAngle(e.clientX, e.clientY); });
+        window.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+        window.addEventListener('mouseup', () => { isDragging = false; previousAngle = null; });
+
+        clockFace.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            previousAngle = getAngle(e.touches[0].clientX, e.touches[0].clientY);
+            e.preventDefault(); 
+        }, {passive: false});
+        
+        window.addEventListener('touchmove', (e) => {
+            handleMove(e.touches[0].clientX, e.touches[0].clientY);
+            e.preventDefault();
+        }, {passive: false});
+        
+        window.addEventListener('touchend', () => { isDragging = false; previousAngle = null; });
+
+        loadQuestion(0);
+    </script>
+</body>
+</html>
