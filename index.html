@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小四數學互動遊戲</title>
+    <style>
+        /* 基礎版面設定 */
+        body { 
+            font-family: "Segoe UI", Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 800px; 
+            margin: auto; 
+            background-color: #f9f9f9; 
+        }
+
+        /* 遊戲按鈕的基礎容器樣式 */
+        .box {
+            padding: 12px 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+
+        /* 階層 1：標題 */
+        .header-box { 
+            background: #0b0573; color: #ffffff; 
+            font-size: 1.5em; text-align: center;
+            display: block; margin-bottom: 20px;
+        }
+        
+        /* 階層 2：副標題 */
+        .category-box { 
+            background: #f1c40f; color: #000000; 
+            font-size: 1.1em; text-align: center;
+            width: fit-content; margin: 10px auto; 
+        }
+        
+        /* 階層 3：遊戲按鈕 Grid 雙欄佈局 */
+        ul { 
+            list-style-type: none; 
+            padding: 0; 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+            gap: 15px; 
+        }
+        
+        /* 確保 li 內部的 div 填滿網格 */
+        li { list-style: none; }
+
+        .game-link { 
+            background: #d35400; color: #ffffff; 
+            font-size: 1.1em; text-align: center;
+            transition: transform 0.2s;
+            display: block; /* 讓 div 變成區塊確保顯示 */
+        }
+        .game-link:hover { transform: scale(1.02); }
+
+        a { text-decoration: none; color: inherit; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="box header-box">小四數學互動遊戲</div>
+    <div class="box category-box">請選擇下列課程遊戲單元</div>
+
+    <ul id="game-list"></ul>
+
+    <script>
+        const version = "1";
+        const games = [
+            { name: "時鐘練習遊戲", file: "clockgame.html" }
+        ];
+
+        const listElement = document.getElementById('game-list');
+        
+        // 使用標準的 DOM 操作，確保結構正確讀取
+        games.forEach(game => {
+            const li = document.createElement('li');
+            li.innerHTML = `<div class="box game-link"><a href="${game.file}?v=${version}">${game.name}</a></div>`;
+            listElement.appendChild(li);
+        });
+    </script>
+</body>
+</html>
