@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>互動時間計算 - 雙向闖關語音版</title>
+    <style>
+        body {
+            font-family: "PingFang TC", "Helvetica Neue", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            margin: 0;
+            height: 100dvh;
+            padding: env(safe-area-inset-top) 10px env(safe-area-inset-bottom) 10px; 
+            box-sizing: border-box;
+            touch-action: none; 
+            overflow: hidden; 
+        }
+        
+        .q-select {
+            font-size: 14px;
+            padding: 5px 10px;
+            border-radius: 8px;
+            border: 2px solid #fff;
+            background: rgba(255, 255, 255, 0.8);
+            margin-bottom: 1vh;
+            width: 95%;
+            max-width: 400px;
+            outline: none;
+        }
+
+        .question-panel {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            width: 95%;
+            max-width: 400px;
+            margin-bottom: 1.5vh; 
+            line-height: 1.4;
+            font-size: 16px; 
+            color: #34495e;
+            border-top: 4px solid #8e9eab;
+        }
+        .highlight { color: #d35400; font-weight: bold; }
+        
+        .info-panel {
+            text-align: center;
+            margin-bottom: 1.5vh;
+            display: flex;
+            align-items: center;
+            gap: 15px; 
+        }
+        .digital-time {
+            font-size: 32px; 
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .elapsed-time {
+            font-size: 16px;
+            color: #e74c3c;
+            font-weight: bold;
+            background: rgba(253, 237, 236, 0.8);
+            padding: 4px 10px;
+            border-radius: 15px;
+        }
+        
+        .clock-container {
+            width: 240px; 
+            height: 240px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.85);
+            border: 8px solid rgba(255, 255, 255, 0.6);
+            position: relative;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            cursor: pointer; 
+            transition: border-color 0.4s;
+            flex-shrink: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .clock-container.success { border-color: #2ecc71; }
+        
+        .mark {
+            position: absolute;
+            width: 2px;
+            height: 8px;
+            background: #bdc3c7;
+            left: 50%;
+            transform: translateX(-50%);
+            transform-origin: 50% 120px;
+        }
+        .mark.main { width: 4px; height: 12px; background: #7f8c8d; }
+        
+        .number {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            text-align: center;
+            line-height: 24px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            left: 50%;
+            top: 50%;
+            margin-left: -12px;
+            margin-top: -12px;
+            pointer-events: none;
+        }
+
+        .hand {
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            transform-origin: bottom center;
+            border-radius: 10px;
+        }
+        .hour-hand { width: 8px; height: 60px; background: #2c3e50; margin-left: -4px; z-index: 2; }
+        .minute-hand { width: 5px; height: 95px; background: #e74c3c; margin-left: -2.5px; z-index: 3; }
+        .center-dot {
+            position: absolute;
+            width: 14px; height: 14px;
+            background: #2c3e50;
+            border-radius: 50%;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 4;
+            border: 2px solid white;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 2vh;
+        }
+        .step-btn {
+            background: #ffffff;
+            border: 2px solid #8e9eab;
+            border-radius: 25px;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #34495e;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            cursor: pointer;
+            min-height: 44px; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        .step-btn:active {
+            transform: scale(0.95);
+            background: #f0f3f4;
+        }
+        
+        .instruction {
+            margin-top: 1.5vh;
+            color: #5d6d7e;
+            font-size: 15px;
+            font-weight: bold;
+        }
+        .success-msg {
+            display: none;
+            margin-top: 1.5vh;
+            color: #27ae60;
+            font-size: 20px;
+            font-weight: bold;
+            animation: popIn 0.5s ease-out forwards;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .confetti {
+            position: absolute;
+            width: 8px;
+            height: 16px;
+            z-index: 999;
+            animation: fall linear forwards;
+        }
+        @keyframes fall {
+            to { transform: translateY(110vh) rotate(720deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <select id="qSelect" class="q-select" onchange="loadQuestion(parseInt(this.value))">
+        <option value="0">第 1 關：下課時間（同日順推）</option>
+        <option value="1">第 2 關：早自習（同日逆推）</option>
+        <option value="2">第 3 關：列車抵達（同日順推）</option>
+        <option value="3">第 4 關：午休時間（同日逆推）</option>
+        <option value="4">第 5 關：下午班會（跨中午順推）</option>
+        <option value="5">第 6 關：上午午餐（跨中午逆推）</option>
+        <option value="6">第 7 關：跨年煙火（跨午夜順推）</option>
+        <option value="7">第 8 關：遊戲維護（跨午夜順推）</option>
+        <option value="8">第 9 關：昨晚電影（跨午夜逆推）</option>
+    </select>
+
+    <div class="question-panel" id="qText"></div>
+
+    <div class="info-panel">
+        <div class="digital-time" id="digitalDisplay">00:00</div>
+        <div class="elapsed-time" id="elapsedDisplay">已經過：0 分鐘</div>
+    </div>
+
+    <div class="clock-container" id="clockFace">
+        <script>
+            for(let i=0; i<12; i++) {
+                let isMain = (i % 3 === 0) ? 'main' : '';
+                document.write(`<div class="mark ${isMain}" style="transform: translateX(-50%) rotate(${i*30}deg)"></div>`);
+                let num = i === 0 ? 12 : i;
+                let angle = i * 30;
+                let radius = 90; 
+                document.write(`<div class="number" style="transform: rotate(${angle}deg) translateY(-${radius}px) rotate(-${angle}deg)">${num}</div>`);
+            }
+        </script>
+        <div class="hand hour-hand" id="hourHand"></div>
+        <div class="hand minute-hand" id="minuteHand"></div>
+        <div class="center-dot"></div>
+    </div>
+
+    <div class="btn-group" id="btnGroup">
+        <button class="step-btn" onclick="stepTime(-5)" ontouchstart="stepTime(-5); event.preventDefault();">向後退 5 分鐘</button>
+        <button class="step-btn" onclick="stepTime(5)" ontouchstart="stepTime(5); event.preventDefault();">向前進 5 分鐘</button>
+    </div>
+
+    <div class="instruction" id="instructionText">👆 請撥動分針或使用下方按鈕推算</div>
+    <div class="success-msg" id="successMsg">🎉 太棒了！</div>
+
+    <script>
+        const questions = [
+            { text: "現在是上午 <span class='highlight'>9 時 30 分</span>，再過 <span class='highlight'>40 分鐘</span>是下課時間，下課是幾時幾分？", start: 9*60+30, target: 40 },
+            { text: "現在是上午 <span class='highlight'>8 時 5 分</span>，<span class='highlight'>25 分鐘前</span>是開始早自習的時間，早自習開始是幾時幾分？", start: 8*60+5, target: -25 },
+            { text: "現在是上午 <span class='highlight'>10 時 15 分</span>，再過 <span class='highlight'>1 小時 20 分鐘</span>列車抵達，何時抵達？", start: 10*60+15, target: 80 },
+            { text: "現在是下午 <span class='highlight'>1 時 15 分</span>，<span class='highlight'>1 小時 10 分鐘前</span>是午休開始的時間，午休開始是幾時幾分？", start: 13*60+15, target: -70 },
+            { text: "現在是上午 <span class='highlight'>11 時 20 分</span>，再過 <span class='highlight'>1 小時 50 分鐘</span>要開班會，班會是幾時幾分？", start: 11*60+20, target: 110 },
+            { text: "現在是下午 <span class='highlight'>1 時 30 分</span>，<span class='highlight'>2 小時 15 分鐘前</span>剛好是準備吃午餐的時間，準備午餐是幾時幾分？", start: 13*60+30, target: -135 },
+            { text: "現在是晚上 <span class='highlight'>10 時 45 分</span>，再過 <span class='highlight'>2 小時 30 分鐘</span>是跨年煙火施放時間，煙火施放是幾時幾分？", start: 22*60+45, target: 150 },
+            { text: "現在是晚上 <span class='highlight'>11 時 10 分</span>，再過 <span class='highlight'>1 小時 40 分鐘</span>遊戲伺服器會維護完畢，開機是幾時幾分？", start: 23*60+10, target: 100 },
+            { text: "現在是凌晨 <span class='highlight'>1 時 15 分</span>，<span class='highlight'>2 小時 30 分鐘前</span>是電影開始的時間，電影是幾時幾分開始的？", start: 1*60+15, target: -150 }
+        ];
+
+        let currentQIndex = 0;
+        let startTotalMinutes = 0;
+        let targetElapsedMinutes = 0;
+        
+        let exactMinutes = 0; 
+        let currentTotalMinutes = 0; 
+        
+        let isDragging = false;
+        let previousAngle = null;
+        let isSolved = false;
+        let voiceUnlocked = false; // 追蹤語音解鎖狀態
+
+        const clockFace = document.getElementById('clockFace');
+        const hourHand = document.getElementById('hourHand');
+        const minuteHand = document.getElementById('minuteHand');
+        const digitalDisplay = document.getElementById('digitalDisplay');
+        const elapsedDisplay = document.getElementById('elapsedDisplay');
+        const successMsg = document.getElementById('successMsg');
+        const instructionText = document.getElementById('instructionText');
+        const qSelect = document.getElementById('qSelect');
+        const btnGroup = document.getElementById('btnGroup'); 
+
+        // --- 語音系統 ---
+        // 解鎖 iOS 語音限制（綁定在畫面的第一次點擊/觸控上）
+        function unlockVoice() {
+            if (!voiceUnlocked && window.speechSynthesis) {
+                let unlockMsg = new SpeechSynthesisUtterance('');
+                window.speechSynthesis.speak(unlockMsg);
+                voiceUnlocked = true;
+            }
+        }
+        document.body.addEventListener('touchstart', unlockVoice, { once: true });
+        document.body.addEventListener('click', unlockVoice, { once: true });
+
+        // 播報時間函數
+        function speakTime(isSuccess = false) {
+            if (!window.speechSynthesis || !voiceUnlocked) return;
+            window.speechSynthesis.cancel();
+            
+            let displayHour = Math.floor(currentTotalMinutes / 60) % 24;
+            let displayMinute = currentTotalMinutes % 60; 
+            if (displayHour < 0) displayHour += 24;
+            if (displayMinute < 0) displayMinute += 60;
+
+            // 將 24 小時制轉為 12 小時制的口語說法
+            let speakHour = displayHour % 12 || 12; 
+            let speakMinute = displayMinute === 0 ? "鐘" : `${displayMinute}分`;
+            
+            let textToSpeak = isSuccess ? `答對了！答案是 ${speakHour}點 ${speakMinute}` : `${speakHour}點 ${speakMinute}`;
+
+            let msg = new SpeechSynthesisUtterance(textToSpeak);
+            msg.lang = 'zh-TW';
+            msg.rate = 0.85; // 放慢語速，幫助理解
+            
+            const voices = window.speechSynthesis.getVoices();
+            msg.voice = voices.find(v => v.name.includes('Mei-Jia') || v.name.includes('female')) || voices[0];
+            
+            window.speechSynthesis.speak(msg);
+        }
+
+        function loadQuestion(index) {
+            currentQIndex = index;
+            qSelect.value = index;
+            let q = questions[currentQIndex];
+            
+            document.getElementById('qText').innerHTML = q.text;
+            startTotalMinutes = q.start;
+            targetElapsedMinutes = q.target;
+            
+            exactMinutes = startTotalMinutes;
+            currentTotalMinutes = startTotalMinutes;
+            
+            isSolved = false;
+            clockFace.classList.remove('success');
+            successMsg.style.display = 'none';
+            instructionText.style.display = 'block';
+            btnGroup.style.display = 'flex'; 
+            
+            let absTarget = Math.abs(targetElapsedMinutes);
+            let targetH = Math.floor(absTarget / 60);
+            let targetM = absTarget % 60;
+            let hintTimeText = targetH > 0 ? `${targetH} 小時又 ${targetM} 分鐘` : `${targetM} 分鐘`;
+            let directionText = targetElapsedMinutes < 0 ? "回" : "前";
+            
+            instructionText.innerText = `👆 請將指針往${directionText}推算 ${hintTimeText}（可搭配按鈕）`;
+
+            updateDisplay();
+        }
+
+        function throwConfetti() {
+            const colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6'];
+            for (let i = 0; i < 40; i++) {
+                let confetti = document.createElement('div');
+                confetti.classList.add('confetti');
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-20px';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDuration = (Math.random() * 1.5 + 1.5) + 's';
+                document.body.appendChild(confetti);
+                setTimeout(() => confetti.remove(), 3000); 
+            }
+        }
+
+        function stepTime(minutes) {
+            if (isSolved) return; 
+            unlockVoice(); // 確保語音解鎖
+            exactMinutes += minutes;
+            currentTotalMinutes = Math.round(exactMinutes);
+            updateDisplay();
+            
+            if (!isSolved) {
+                speakTime(false); // 尚未破關時，讀出當下時間
+            }
+        }
+
+        function updateDisplay() {
+            let displayHour = Math.floor(currentTotalMinutes / 60) % 24;
+            let displayMinute = currentTotalMinutes % 60; 
+            
+            if (displayHour < 0) displayHour += 24;
+            if (displayMinute < 0) displayMinute += 60;
+
+            digitalDisplay.innerText = `${displayHour.toString().padStart(2, '0')}:${displayMinute.toString().padStart(2, '0')}`;
+
+            let elapsed = currentTotalMinutes - startTotalMinutes;
+            if (elapsed < 0) {
+                elapsedDisplay.innerText = `已往回：${Math.abs(elapsed)} 分鐘`;
+            } else {
+                elapsedDisplay.innerText = `已經過：${elapsed} 分鐘`;
+            }
+
+            let minuteAngle = (exactMinutes % 60) * 6;
+            let hourAngle = ((exactMinutes / 60) % 12) * 30;
+
+            minuteHand.style.transform = `rotate(${minuteAngle}deg)`;
+            hourHand.style.transform = `rotate(${hourAngle}deg)`;
+
+            // 檢查是否過關
+            if (elapsed === targetElapsedMinutes && !isSolved) {
+                isSolved = true;
+                clockFace.classList.add('success');
+                successMsg.innerHTML = `🎉 太棒了！答案是 ${digitalDisplay.innerText}`;
+                successMsg.style.display = 'block';
+                instructionText.style.display = 'none';
+                btnGroup.style.display = 'none'; 
+                
+                throwConfetti(); 
+                speakTime(true); // 破關時，加上「答對了」的語音
+
+                setTimeout(() => {
+                    if (currentQIndex + 1 < questions.length) {
+                        loadQuestion(currentQIndex + 1);
+                    } else {
+                        instructionText.innerText = "🏆 恭喜你完成所有雙向關卡！";
+                        instructionText.style.display = 'block';
+                        successMsg.style.display = 'none';
+                    }
+                }, 3500); // 稍微延長等待時間，讓語音播報完畢
+
+            } else if (elapsed !== targetElapsedMinutes && isSolved) {
+                isSolved = false;
+                clockFace.classList.remove('success');
+                successMsg.style.display = 'none';
+                instructionText.style.display = 'block';
+                btnGroup.style.display = 'flex';
+            }
+        }
+
+        function getAngle(x, y) {
+            const rect = clockFace.getBoundingClientRect();
+            let radians = Math.atan2(y - (rect.top + rect.height/2), x - (rect.left + rect.width/2));
+            let degrees = radians * (180 / Math.PI) + 90;
+            return degrees < 0 ? degrees + 360 : degrees;
+        }
+
+        function handleMove(clientX, clientY) {
+            if (!isDragging || isSolved) return; 
+            let currentAngle = getAngle(clientX, clientY);
+            if (previousAngle !== null) {
+                let delta = currentAngle - previousAngle;
+                if (delta > 180) delta -= 360;
+                else if (delta < -180) delta += 360;
+                
+                exactMinutes += delta / 6;
+                currentTotalMinutes = Math.round(exactMinutes); 
+            }
+            previousAngle = currentAngle;
+            updateDisplay();
+        }
+
+        // 當手動拖曳指針結束時，讀出最後停留的時間
+        function handleDragEnd() {
+            if (!isDragging) return;
+            isDragging = false; 
+            previousAngle = null;
+            if (!isSolved) speakTime(false);
+        }
+
+        clockFace.addEventListener('mousedown', (e) => { isDragging = true; previousAngle = getAngle(e.clientX, e.clientY); });
+        window.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+        window.addEventListener('mouseup', handleDragEnd);
+
+        clockFace.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            previousAngle = getAngle(e.touches[0].clientX, e.touches[0].clientY);
+            e.preventDefault(); 
+        }, {passive: false});
+        
+        window.addEventListener('touchmove', (e) => {
+            handleMove(e.touches[0].clientX, e.touches[0].clientY);
+            e.preventDefault();
+        }, {passive: false});
+        
+        window.addEventListener('touchend', handleDragEnd);
+
+        loadQuestion(0);
+    </script>
+</body>
+</html>
