@@ -68,9 +68,13 @@
     <ul id="game-list"></ul>
 
     <script>
-        const version = "1";
+        // 更新版本號，避免瀏覽器快取到舊版
+        const version = "2"; 
+        
+        // 遊戲清單，直接在這裡新增
         const games = [
-            { name: "時鐘練習遊戲", file: "clockgame.html" }
+            { name: "時鐘練習遊戲", file: "clockgame.html" },
+            { name: "時間探險島 (日時 / 時分)", file: "timedrill.html" }
         ];
 
         const listElement = document.getElementById('game-list');
