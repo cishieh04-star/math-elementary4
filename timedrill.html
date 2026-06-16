@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>時間探險島：雙主題大廳版 (修正雙重太棒了)</title>
+    <style>
+        body { 
+            font-family: "PingFang TC", "Helvetica Neue", sans-serif; 
+            background: #FDF6E3; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 15px; 
+            margin: 0;
+            touch-action: manipulation;
+            overflow-x: hidden;
+        }
+        .box { background: white; padding: 25px; border-radius: 20px; width: 100%; max-width: 450px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1); z-index: 10; position: relative; }
+        
+        #menuArea { display: flex; flex-direction: column; gap: 20px; padding: 20px 0; }
+        .menu-title { font-size: 32px; color: #5D4037; font-weight: bold; margin-bottom: 10px; }
+        .menu-btn { background: #4E342E; color: white; border: none; padding: 20px; border-radius: 15px; font-size: 22px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 #3E2723; transition: all 0.1s; }
+        .menu-btn.day-mode { background: #0288D1; box-shadow: 0 5px 0 #01579B; }
+        .menu-btn:active { transform: translateY(5px); box-shadow: none; }
+
+        #quizArea { display: none; }
+        
+        .home-btn { 
+            background: #FFCA28; 
+            color: #5D4037; 
+            border: 3px solid #FF8F00; 
+            padding: 12px 25px; 
+            border-radius: 15px; 
+            margin-bottom: 25px; 
+            cursor: pointer; 
+            font-size: 20px; 
+            font-weight: bold; 
+            box-shadow: 0 5px 0 #FF8F00;
+            transition: all 0.1s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 80%;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .home-btn:active { 
+            transform: translateY(5px); 
+            box-shadow: none; 
+        }
+
+        .fixed-eq { border-bottom: 2px solid #EEE; margin-bottom: 20px; padding-bottom: 10px; }
+        .row { display: flex; justify-content: center; gap: 50px; font-size: 32px; font-weight: bold; }
+        .col { display: flex; flex-direction: column; align-items: center; width: 60px; }
+        .ans-box { color: #C62828; min-height: 38px; margin-top: 5px; } 
+        
+        .borrow-mark { 
+            color: #C62828; font-size: 28px; font-weight: 900;
+            position: absolute; top: -38px; left: 15px; white-space: nowrap;
+        }
+        .strike { text-decoration: line-through; color: #b0b0b0; }
+        
+        .dynamic-area { min-height: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .option-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+        .option-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
+        
+        .btn { background: #5D4037; color: white; border: none; padding: 15px 2px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; width: 100%; margin: 5px 0; -webkit-tap-highlight-color: transparent; }
+        .btn:active { transform: scale(0.95); }
+        .hint { font-size: 20px; color: #5D4037; font-weight: bold; margin: 15px 0; }
+        
+        .confetti { position: absolute; width: 8px; height: 16px; z-index: 999; animation: fall linear forwards; }
+        @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+        .auto-next-text { margin-top: 25px; font-size: 16px; color: #8e9eab; font-weight: bold; animation: pulse 1.5s infinite; cursor: pointer; padding: 10px; }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+    </style>
+</head>
+<body>
+
+<div class="box" id="mainBox">
+    
+    <div id="menuArea">
+        <div class="menu-title">⏳ 時間探險島</div>
+        <div style="color: #795548; margin-bottom: 25px; font-size: 20px; font-weight: bold;">請選擇今天要挑戰的關卡：</div>
+        <button class="menu-btn" onclick="startGame('HM')">🕒 時與分 (進位60)</button>
+        <button class="menu-btn day-mode" onclick="startGame('DH')">☀️ 日與時 (進位24)</button>
+    </div>
+
+    <div id="quizArea">
+        <button class="home-btn" onclick="backToMenu()">🏠 想換關卡！回到大廳</button>
+        
+        <div class="fixed-eq">
+            <div class="row">
+                <div class="col">
+                    <div id="unit1Label" style="margin-bottom: 40px;">時</div>
+                    <div style="position: relative;">
+                        <div id="u1_borrow" class="borrow-mark"></div>
+                        <div id="u1_val">0</div>
+                    </div>
+                    <div style="border-bottom: 3px solid #000; width: 100%; display: flex; justify-content: center; align-items: center; position: relative;">
+                        <span id="sign" style="position: absolute; left: -30px;">+</span>
+                        <div id="u2_val">0</div>
+                    </div>
+                    <div class="ans-box" id="ansUnit1"></div>
+                </div>
+                <div class="col">
+                    <div id="unit2Label" style="margin-bottom: 40px;">分</div>
+                    <div style="position: relative;">
+                        <div id="u1_sub_borrow" class="borrow-mark"></div>
+                        <div id="u1_sub_val">0</div>
+                    </div>
+                    <div style="border-bottom: 3px solid #000; width: 100%;" id="u2_sub_val">0</div>
+                    <div class="ans-box" id="ansUnit2"></div>
+                </div>
+            </div>
+        </div>
+        <div class="dynamic-area" id="dynamicArea"></div>
+    </div>
+
+</div>
+
+<script>
+    var qData_HM = [
+        { op: '+', u1: 3, u2: 10, v1: 1, v2: 58 }, { op: '+', u1: 4, u2: 15, v1: 2, v2: 20 }, 
+        { op: '-', u1: 4, u2: 10, v1: 1, v2: 50 }, { op: '-', u1: 5, u2: 40, v1: 2, v2: 10 }, 
+        { op: '+', u1: 2, u2: 45, v1: 1, v2: 30 }, { op: '+', u1: 1, u2: 10, v1: 3, v2: 40 }, 
+        { op: '-', u1: 6, u2: 15, v1: 3, v2: 45 }, { op: '+', u1: 5, u2: 35, v1: 2, v2: 45 }, 
+        { op: '-', u1: 8, u2: 50, v1: 4, v2: 20 }, { op: '+', u1: 3, u2:  5, v1: 1, v2: 12 }, 
+        { op: '-', u1: 3, u2: 20, v1: 1, v2: 35 }, { op: '+', u1: 4, u2: 50, v1: 2, v2: 20 }, 
+        { op: '-', u1: 7, u2: 45, v1: 2, v2: 15 }, { op: '+', u1: 6, u2: 20, v1: 2, v2: 30 }, 
+        { op: '-', u1: 5, u2:  5, v1: 2, v2: 40 }, { op: '+', u1: 1, u2: 40, v1: 3, v2: 30 }, 
+        { op: '-', u1: 9, u2: 30, v1: 5, v2: 10 }, { op: '+', u1: 7, u2: 10, v1: 1, v2: 15 }, 
+        { op: '-', u1: 8, u2: 30, v1: 4, v2: 55 }, { op: '-', u1: 6, u2: 55, v1: 3, v2: 25 },
+        { op: '+', u1: 2, u2: 55, v1: 1, v2: 15 }, { op: '+', u1: 3, u2: 20, v1: 4, v2: 10 },
+        { op: '-', u1: 5, u2: 10, v1: 2, v2: 45 }, { op: '-', u1: 6, u2: 30, v1: 3, v2: 15 },
+        { op: '+', u1: 4, u2: 48, v1: 2, v2: 32 }, { op: '+', u1: 7, u2: 12, v1: 1, v2: 25 },
+        { op: '-', u1: 8, u2:  5, v1: 4, v2: 50 }, { op: '-', u1: 9, u2: 40, v1: 5, v2: 20 },
+        { op: '+', u1: 1, u2: 50, v1: 2, v2: 40 }, { op: '-', u1: 4, u2: 15, v1: 1, v2: 35 }
+    ];
+
+    var qData_DH = [
+        { op: '+', u1: 2, u2: 19, v1: 4, v2: 15 }, { op: '+', u1: 3, u2: 10, v1: 1, v2: 18 }, 
+        { op: '-', u1: 4, u2: 10, v1: 1, v2: 20 }, { op: '-', u1: 5, u2: 15, v1: 2, v2: 10 }, 
+        { op: '+', u1: 2, u2: 20, v1: 1, v2: 10 }, { op: '+', u1: 1, u2: 10, v1: 3, v2: 12 }, 
+        { op: '-', u1: 6, u2:  5, v1: 3, v2: 15 }, { op: '+', u1: 5, u2: 18, v1: 2, v2: 12 }, 
+        { op: '-', u1: 8, u2: 20, v1: 4, v2:  5 }, { op: '+', u1: 3, u2:  5, v1: 1, v2: 22 }, 
+        { op: '-', u1: 3, u2:  8, v1: 1, v2: 15 }, { op: '+', u1: 4, u2: 15, v1: 2, v2: 20 }, 
+        { op: '-', u1: 7, u2: 18, v1: 2, v2: 10 }, { op: '+', u1: 6, u2: 11, v1: 2, v2: 15 }, 
+        { op: '-', u1: 5, u2:  5, v1: 2, v2: 18 }, { op: '+', u1: 1, u2: 22, v1: 3, v2:  8 }, 
+        { op: '-', u1: 9, u2: 12, v1: 5, v2:  8 }, { op: '+', u1: 7, u2: 10, v1: 1, v2: 15 }, 
+        { op: '-', u1: 8, u2: 10, v1: 4, v2: 22 }, { op: '-', u1: 6, u2: 20, v1: 3, v2:  5 },
+        { op: '+', u1: 3, u2: 15, v1: 2, v2: 10 }, { op: '+', u1: 5, u2:  8, v1: 1, v2:  5 },
+        { op: '-', u1: 6, u2:  5, v1: 2, v2: 18 }, { op: '-', u1: 7, u2: 16, v1: 3, v2:  4 },
+        { op: '+', u1: 2, u2: 22, v1: 4, v2:  6 }, { op: '+', u1: 4, u2: 11, v1: 3, v2:  8 },
+        { op: '-', u1: 5, u2: 10, v1: 1, v2: 20 }, { op: '-', u1: 8, u2: 15, v1: 4, v2: 10 },
+        { op: '+', u1: 1, u2: 19, v1: 2, v2: 12 }, { op: '-', u1: 4, u2:  2, v1: 2, v2: 15 }
+    ];
+
+    var currentMode = ''; 
+    var activeQData = [];
+    var baseValue = 60; 
+    var label1 = '', label2 = '';
+
+    var currentQIndex = 0;
+    var currentNextAction = "";
+    var autoTimer = null; 
+    var isProcessing = false; // ★防連點鎖
+
+    function shuffleArray(arr) {
+        for (var i = arr.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var temp = arr[i]; arr[i] = arr[j]; arr[j] = temp;
+        }
+    }
+
+    function startGame(mode) {
+        currentMode = mode;
+        document.getElementById('menuArea').style.display = 'none';
+        document.getElementById('quizArea').style.display = 'block';
+        
+        if (mode === 'HM') {
+            activeQData = JSON.parse(JSON.stringify(qData_HM));
+            baseValue = 60; label1 = '時'; label2 = '分';
+        } else {
+            activeQData = JSON.parse(JSON.stringify(qData_DH));
+            baseValue = 24; label1 = '日'; label2 = '時';
+        }
+        
+        document.getElementById('unit1Label').innerText = label1;
+        document.getElementById('unit2Label').innerText = label2;
+        
+        shuffleArray(activeQData);
+        currentQIndex = 0;
+        loadQuestion();
+    }
+
+    function backToMenu() {
+        clearTimeout(autoTimer);
+        document.getElementById('quizArea').style.display = 'none';
+        document.getElementById('menuArea').style.display = 'flex';
+        if(window.speechSynthesis) window.speechSynthesis.cancel();
+    }
+
+    function speak(t) { 
+        try {
+            if(window.speechSynthesis) {
+                window.speechSynthesis.cancel(); 
+                var msg = new SpeechSynthesisUtterance(t); msg.lang = 'zh-TW';
+                window.speechSynthesis.speak(msg); 
+            }
+        } catch(e) {}
+    }
+    
+    function wrong() { speak("再想一想喔！"); alert("再想一想喔！"); }
+
+    function throwConfetti() {
+        var colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6'];
+        for (var i = 0; i < 40; i++) {
+            var confetti = document.createElement('div');
+            confetti.classList.add('confetti');
+            confetti.style.left = Math.random() * 100 + 'vw';
+            confetti.style.top = '-20px';
+            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.animationDuration = (Math.random() * 1.5 + 1.5) + 's';
+            document.body.appendChild(confetti);
+            setTimeout(function(c) { return function() { c.remove(); } }(confetti), 3000); 
+        }
+    }
+
+    function triggerSuccess(nextContent, nextFnStr) {
+        speak("太棒了！"); throwConfetti();
+        window.triggerNext = function() {
+            clearTimeout(autoTimer); window.triggerNext = null; 
+            if (nextFnStr === 'nextQuestion()') nextQuestion(); else executeNext();
+        };
+        document.getElementById('dynamicArea').innerHTML = 
+            '<h3 style="color:#C62828; margin-bottom: 5px; font-size: 24px;">🎉 太棒了！</h3>' + 
+            nextContent + 
+            '<div class="auto-next-text" onclick="if(window.triggerNext) window.triggerNext()">正在自動進入下一步... (等不及可點此)</div>';
+        autoTimer = setTimeout(function() { if(window.triggerNext) window.triggerNext(); }, 2000); 
+    }
+
+    function padZero(num) { return num < 10 ? '0' + num : num.toString(); }
+    function format(val1, val2) { return val1 + label1 + " " + padZero(val2) + label2; }
+
+    function get8Options(c1, c2) {
+        var opts = []; opts.push(format(c1, c2));
+        var attempts = 0;
+        while(opts.length < 8 && attempts < 200) {
+            attempts++;
+            var d1 = Math.floor(Math.random() * 3) - 1; 
+            var d2 = (Math.floor(Math.random() * 5) - 2) * (baseValue===60 ? 10 : 5); 
+            if (Math.random() > 0.6) d2 += (Math.random() > 0.5 ? (baseValue===60?8:2) : -(baseValue===60?8:2));
+
+            var n1 = c1 + d1; var n2 = c2 + d2;
+            if (n1 < 0 || n2 < 0 || (n1 === c1 && n2 === c2)) continue;
+            var newOpt = format(n1, n2);
+            if (opts.indexOf(newOpt) === -1) opts.push(newOpt);
+        }
+        var fallback = 0;
+        while(opts.length < 8) { 
+            fallback++; var fOpt = format(c1, fallback);
+            if (opts.indexOf(fOpt) === -1) opts.push(fOpt);
+        }
+        return opts.sort(function() { return Math.random() - 0.5; });
+    }
+
+    function renderButtons(hint, options, correctAnswer, nextActionStr) {
+        isProcessing = false; // 按鈕渲染完成，解開防連點鎖
+        var btnsHtml = ""; var isGrid2 = options.length <= 2;
+        for(var i = 0; i < options.length; i++) {
+            var opt = options[i];
+            if (opt === correctAnswer) {
+                btnsHtml += '<button class="btn" onclick="correctClick(\'' + nextActionStr + '\', \'' + opt + '\')">' + opt + '</button>';
+            } else {
+                btnsHtml += '<button class="btn" onclick="wrong()">' + opt + '</button>';
+            }
+        }
+        var gridClass = isGrid2 ? 'option-grid-2' : 'option-grid';
+        document.getElementById('dynamicArea').innerHTML = '<div class="hint">' + hint + '</div><div class="' + gridClass + '">' + btnsHtml + '</div>';
+    }
+
+    function correctClick(nextActionStr, optText) {
+        if (isProcessing) return; // ★防連點機制：正在處理中就不理會後續點擊
+        isProcessing = true; 
+
+        currentNextAction = nextActionStr; 
+        var q = activeQData[currentQIndex];
+
+        if (nextActionStr === 'step2Add') {
+            document.getElementById('ansUnit1').innerText = q.u1 + q.v1;
+            document.getElementById('ansUnit2').innerText = padZero(q.u2 + q.v2);
+        } else if (nextActionStr === 'step3Sub') {
+            document.getElementById('u1_borrow').innerText = q.u1 - 1;
+            document.getElementById('u1_val').classList.add('strike');
+            document.getElementById('u1_sub_borrow').innerText = q.u2 + baseValue;
+            document.getElementById('u1_sub_val').classList.add('strike');
+        } else if (nextActionStr === 'finalWin') {
+            var f1, f2;
+            if (q.op === '+') {
+                f1 = q.u1 + q.v1 + Math.floor((q.u2 + q.v2) / baseValue); 
+                f2 = (q.u2 + q.v2) % baseValue;
+            } else {
+                var cur2 = q.u2 < q.v2 ? q.u2 + baseValue : q.u2; 
+                var cur1 = q.u2 < q.v2 ? q.u1 - 1 : q.u1;
+                f1 = cur1 - q.v1; f2 = cur2 - q.v2;
+            }
+            document.getElementById('ansUnit1').innerText = f1;
+            document.getElementById('ansUnit2').innerText = padZero(f2);
+        }
+
+        var nextFn = (nextActionStr === 'finalWin') ? 'nextQuestion()' : 'executeNext()';
+        triggerSuccess('<div style="font-size:20px; font-weight:bold; color:#333;">正確！' + optText + '</div>', nextFn);
+    }
+
+    function executeNext() {
+        var q = activeQData[currentQIndex];
+        var unitName = label2; 
+        
+        if (currentNextAction === 'step2Add') {
+            var needCarry = (q.u2 + q.v2) >= baseValue;
+            var carryText = "要進位 " + baseValue + " " + unitName;
+            var opts = ["不必進位", carryText].sort(function() { return Math.random() - 0.5; });
+            var corr = needCarry ? carryText : "不必進位";
+            renderButtons((q.u2 + q.v2) + unitName + "需要進位嗎？", opts, corr, 'step3Add');
+            speak((q.u2 + q.v2) + unitName + "需要進位嗎？");
+            
+        } else if (currentNextAction === 'step3Add') {
+            var f1 = q.u1 + q.v1 + Math.floor((q.u2 + q.v2) / baseValue);
+            var f2 = (q.u2 + q.v2) % baseValue;
+            renderButtons("最後，正確的時間應該是什麼？", get8Options(f1, f2), format(f1, f2), 'finalWin');
+            speak("最後正確的時間應該是什麼呢？");
+
+        } else if (currentNextAction === 'step2Sub') {
+            var needBorrow = q.u2 < q.v2;
+            if (needBorrow) {
+                var b1 = q.u1 - 1; var b2 = q.u2 + baseValue; 
+                renderButtons("借1" + label1 + "換" + baseValue + label2 + "後，上面的時間變成多少？", get8Options(b1, b2), format(b1, b2), 'step3Sub');
+                speak("借1" + label1 + "換" + baseValue + label2 + "後，上面的時間變成多少？");
+            } else {
+                currentNextAction = 'step3SubForce';
+                // ★ 修正：將不需要借位的提示詞改為「正確！夠減，直接計算吧！」，避免重複出現兩次「太棒了」
+                triggerSuccess("<div style='font-size:18px; font-weight:bold;'>正確！夠減，直接計算吧！</div>", "executeNext()");
+            }
+
+        } else if (currentNextAction === 'step3Sub' || currentNextAction === 'step3SubForce') {
+            var cur2 = q.u2 < q.v2 ? q.u2 + baseValue : q.u2;
+            var cur1 = q.u2 < q.v2 ? q.u1 - 1 : q.u1;
+            renderButtons("最後減下來，正確的時間是多少？", get8Options(cur1 - q.v1, cur2 - q.v2), format(cur1 - q.v1, cur2 - q.v2), 'finalWin');
+            speak("正確的時間應該是什麼呢？");
+        }
+    }
+
+    function loadQuestion() {
+        if (currentQIndex >= activeQData.length) {
+            document.getElementById('dynamicArea').innerHTML = 
+                '<h3 style="color:#C62828; font-size:24px;">🏆 恭喜你！<br>全部破關了！</h3>' +
+                '<button class="menu-btn" style="margin-top:20px;" onclick="backToMenu()">🏠 回到大廳選其他關卡</button>';
+            speak("恭喜你！全部破關了！"); throwConfetti(); return;
+        }
+        var q = activeQData[currentQIndex];
+        
+        document.getElementById('sign').innerText = q.op;
+        document.getElementById('u1_val').innerText = q.u1; 
+        document.getElementById('u1_sub_val').innerText = padZero(q.u2);
+        document.getElementById('u2_val').innerText = q.v1; 
+        document.getElementById('u2_sub_val').innerText = padZero(q.v2);
+        
+        document.getElementById('ansUnit1').innerText = ""; 
+        document.getElementById('ansUnit2').innerText = "";
+        document.getElementById('u1_borrow').innerText = ""; 
+        document.getElementById('u1_sub_borrow').innerText = "";
+        document.getElementById('u1_val').className = ""; 
+        document.getElementById('u1_sub_val').className = "";
+
+        if (q.op === '+') {
+            renderButtons("首先，直接加起來是多少？", get8Options(q.u1 + q.v1, q.u2 + q.v2), format(q.u1 + q.v1, q.u2 + q.v2), 'step2Add');
+            speak("首先，直接加起來是多少？");
+        } else {
+            var borrowText = "不夠減，要退1" + label1 + "變" + baseValue + label2;
+            var opts = ["夠減，不必退位", borrowText].sort(function() { return Math.random() - 0.5; });
+            var corr = (q.u2 < q.v2) ? borrowText : "夠減，不必退位";
+            renderButtons("首先看「" + label2 + "」，夠不夠減？需要退位嗎？", opts, corr, 'step2Sub');
+            speak("首先看「" + label2 + "」，夠不夠減？需要退位嗎？");
+        }
+    }
+
+    function nextQuestion() {
+        currentQIndex++;
+        loadQuestion();
+    }
+</script>
+</body>
+</html>
